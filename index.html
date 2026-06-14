@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>🍽️ RoutineMeal — Weekly Meal Planner</title>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+  :root {
+    --bg1: #ff9a56;
+    --bg2: #ff6a88;
+    --bg3: #845ec2;
+    --card: #ffffff;
+    --noon: #ffb703;
+    --dinner: #4361ee;
+    --ink: #2b2d42;
+    --muted: #6c757d;
+    --soft: #fff4e6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background: linear-gradient(135deg, var(--bg1), var(--bg2) 50%, var(--bg3));
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; }
+  header.app {
+    text-align: center;
+    color: #fff;
+    margin-bottom: 22px;
+  }
+  header.app h1 { margin: 0; font-size: 2.1rem; text-shadow: 0 2px 8px rgba(0,0,0,.2); }
+  header.app p { margin: 6px 0 0; opacity: .95; font-size: 1rem; }
+
+  .panel {
+    background: var(--card);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.18);
+    margin-bottom: 22px;
+  }
+  .panel h2 { margin: 0 0 14px; font-size: 1.2rem; }
+
+  table.grid { width: 100%; border-collapse: separate; border-spacing: 0 10px; }
+  table.grid th {
+    text-align: left;
+    font-size: .8rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: var(--muted);
+    padding: 0 10px 4px;
+  }
+  table.grid td { padding: 4px 6px; vertical-align: middle; }
+  .daycell {
+    font-weight: 700;
+    background: var(--soft);
+    border-radius: 12px;
+    padding: 10px 14px;
+    white-space: nowrap;
+  }
+  table.grid input {
+    width: 100%;
+    border: 2px solid #eee;
+    border-radius: 12px;
+    padding: 11px 12px;
+    font-size: .98rem;
+    transition: border-color .15s, box-shadow .15s;
+    font-family: inherit;
+  }
+  table.grid input.noon:focus { outline: none; border-color: var(--noon); box-shadow: 0 0 0 3px rgba(255,183,3,.25); }
+  table.grid input.dinner:focus { outline: none; border-color: var(--dinner); box-shadow: 0 0 0 3px rgba(67,97,238,.2); }
+
+  .btnrow { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+  button {
+    border: none;
+    border-radius: 14px;
+    padding: 13px 22px;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: transform .08s, box-shadow .15s, opacity .15s;
+  }
+  button:active { transform: translateY(1px); }
+  .btn-primary { background: linear-gradient(135deg, var(--bg2), var(--bg3)); color: #fff; box-shadow: 0 6px 16px rgba(132,94,194,.4); }
+  .btn-export { background: linear-gradient(135deg, #06d6a0, #1b9aaa); color: #fff; box-shadow: 0 6px 16px rgba(6,214,160,.4); }
+  .btn-ghost { background: #f1f3f5; color: var(--muted); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* Routine card (the thing exported to JPG) */
+  #routineCard {
+    background: linear-gradient(135deg, #fff, #fff8f0);
+    border-radius: 20px;
+    padding: 26px;
+    box-shadow: 0 12px 30px rgba(0,0,0,.18);
+  }
+  #routineCard .rc-head { text-align: center; margin-bottom: 18px; }
+  #routineCard .rc-head h2 { font-size: 1.5rem; margin: 0; color: var(--bg3); }
+  #routineCard .rc-head small { color: var(--muted); }
+  .rc-day {
+    display: grid;
+    grid-template-columns: 110px 1fr 1fr;
+    gap: 12px;
+    align-items: stretch;
+    margin-bottom: 12px;
+  }
+  .rc-day .rc-name {
+    display: flex; align-items: center;
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    color: #fff;
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  .rc-meal { border-radius: 14px; padding: 12px 14px; color: #fff; }
+  .rc-meal .lbl { font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; opacity: .9; display: block; margin-bottom: 3px; }
+  .rc-meal .val { font-weight: 700; font-size: 1rem; word-break: break-word; }
+  .rc-meal.noon { background: linear-gradient(135deg, #ffb703, #fb8500); }
+  .rc-meal.dinner { background: linear-gradient(135deg, #4361ee, #7209b7); }
+  .rc-empty { opacity: .55; font-weight: 500; font-style: italic; }
+  #routineCard .rc-foot { text-align: center; margin-top: 14px; color: var(--muted); font-size: .82rem; }
+
+  .hidden { display: none; }
+  .saved-note { color: var(--muted); font-size: .85rem; margin-top: 12px; }
+  @media (max-width: 620px) {
+    .rc-day { grid-template-columns: 1fr; }
+    table.grid, table.grid tbody, table.grid tr, table.grid td { display: block; width: 100%; }
+    table.grid thead { display: none; }
+    .daycell { margin-bottom: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app">
+    <h1>🍽️ RoutineMeal</h1>
+    <p>Plan your week — type your Noon &amp; Dinner meals, generate, and save as an image.</p>
+  </header>
+
+  <!-- Input panel -->
+  <section class="panel">
+    <h2>📝 Your week</h2>
+    <table class="grid">
+      <thead>
+        <tr><th>Day</th><th>🌞 Noon</th><th>🌙 Dinner</th></tr>
+      </thead>
+      <tbody id="inputBody"></tbody>
+    </table>
+    <div class="btnrow">
+      <button class="btn-primary" id="generateBtn">✨ Generate routine</button>
+      <button class="btn-ghost" id="clearBtn">🧹 Clear week</button>
+    </div>
+    <div class="saved-note" id="savedNote"></div>
+  </section>
+
+  <!-- Output panel -->
+  <section class="panel hidden" id="outputPanel">
+    <h2>📅 Generated routine</h2>
+    <div id="routineCard"></div>
+    <div class="btnrow" style="margin-top:16px">
+      <button class="btn-export" id="exportBtn">📸 Save as JPG</button>
+    </div>
+  </section>
+</div>
+
+<!-- Shared autocomplete suggestions -->
+<datalist id="mealSuggestions"></datalist>
+
+<script>
+(function () {
+  "use strict";
+
+  var DAYS = ["Saturday", "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
+  var KEY_SAVED = "routinemeal.savedMeals";
+  var KEY_WEEK = "routinemeal.currentWeek";
+
+  var inputBody = document.getElementById("inputBody");
+  var datalist = document.getElementById("mealSuggestions");
+  var savedNote = document.getElementById("savedNote");
+  var outputPanel = document.getElementById("outputPanel");
+  var routineCard = document.getElementById("routineCard");
+
+  // ---- storage helpers ----
+  function loadSaved() {
+    try { return JSON.parse(localStorage.getItem(KEY_SAVED)) || []; }
+    catch (e) { return []; }
+  }
+  function loadWeek() {
+    try { return JSON.parse(localStorage.getItem(KEY_WEEK)) || {}; }
+    catch (e) { return {}; }
+  }
+  function saveWeek(week) {
+    localStorage.setItem(KEY_WEEK, JSON.stringify(week));
+  }
+  function addSavedMeals(names) {
+    var saved = loadSaved();
+    var lower = saved.map(function (s) { return s.toLowerCase(); });
+    names.forEach(function (n) {
+      n = n.trim();
+      if (n && lower.indexOf(n.toLowerCase()) === -1) {
+        saved.push(n);
+        lower.push(n.toLowerCase());
+      }
+    });
+    saved.sort(function (a, b) { return a.localeCompare(b); });
+    localStorage.setItem(KEY_SAVED, JSON.stringify(saved));
+    return saved;
+  }
+
+  // ---- UI builders ----
+  function refreshDatalist() {
+    var saved = loadSaved();
+    datalist.innerHTML = "";
+    saved.forEach(function (m) {
+      var opt = document.createElement("option");
+      opt.value = m;
+      datalist.appendChild(opt);
+    });
+    savedNote.textContent = saved.length
+      ? "💡 " + saved.length + " saved meal" + (saved.length === 1 ? "" : "s") + " will be suggested as you type."
+      : "Tip: meals you type get saved and suggested next time.";
+  }
+
+  function makeInput(day, kind, value) {
+    var input = document.createElement("input");
+    input.type = "text";
+    input.className = kind;
+    input.placeholder = kind === "noon" ? "e.g. Rice & chicken curry" : "e.g. Roti & vegetables";
+    input.setAttribute("list", "mealSuggestions");
+    input.setAttribute("data-day", day);
+    input.setAttribute("data-kind", kind);
+    input.value = value || "";
+    input.addEventListener("input", persistInputs);
+    return input;
+  }
+
+  function buildGrid() {
+    var week = loadWeek();
+    inputBody.innerHTML = "";
+    DAYS.forEach(function (day) {
+      var entry = week[day] || {};
+      var tr = document.createElement("tr");
+
+      var tdDay = document.createElement("td");
+      var dayDiv = document.createElement("div");
+      dayDiv.className = "daycell";
+      dayDiv.textContent = day;
+      tdDay.appendChild(dayDiv);
+
+      var tdNoon = document.createElement("td");
+      tdNoon.appendChild(makeInput(day, "noon", entry.noon));
+
+      var tdDinner = document.createElement("td");
+      tdDinner.appendChild(makeInput(day, "dinner", entry.dinner));
+
+      tr.appendChild(tdDay);
+      tr.appendChild(tdNoon);
+      tr.appendChild(tdDinner);
+      inputBody.appendChild(tr);
+    });
+  }
+
+  function collectWeek() {
+    var week = {};
+    var inputs = inputBody.querySelectorAll("input");
+    inputs.forEach(function (inp) {
+      var day = inp.getAttribute("data-day");
+      var kind = inp.getAttribute("data-kind");
+      if (!week[day]) week[day] = { noon: "", dinner: "" };
+      week[day][kind] = inp.value.trim();
+    });
+    return week;
+  }
+
+  function persistInputs() {
+    saveWeek(collectWeek());
+  }
+
+  // ---- actions ----
+  function generate() {
+    var week = collectWeek();
+    saveWeek(week);
+
+    // save typed meals for future suggestions
+    var allMeals = [];
+    DAYS.forEach(function (day) {
+      var e = week[day] || {};
+      if (e.noon) allMeals.push(e.noon);
+      if (e.dinner) allMeals.push(e.dinner);
+    });
+    addSavedMeals(allMeals);
+    refreshDatalist();
+
+    renderCard(week);
+    outputPanel.classList.remove("hidden");
+    outputPanel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function esc(s) {
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function mealCell(kind, label, value) {
+    var content = value
+      ? '<span class="val">' + esc(value) + "</span>"
+      : '<span class="val rc-empty">— not set —</span>';
+    return '<div class="rc-meal ' + kind + '"><span class="lbl">' + label + "</span>" + content + "</div>";
+  }
+
+  function renderCard(week) {
+    var today = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+    var html = '<div class="rc-head"><h2>🍽️ My Weekly Meal Routine</h2><small>Created ' + today + "</small></div>";
+    DAYS.forEach(function (day) {
+      var e = week[day] || {};
+      html += '<div class="rc-day">' +
+        '<div class="rc-name">' + day + "</div>" +
+        mealCell("noon", "🌞 Noon", e.noon) +
+        mealCell("dinner", "🌙 Dinner", e.dinner) +
+        "</div>";
+    });
+    html += '<div class="rc-foot">Made with RoutineMeal</div>';
+    routineCard.innerHTML = html;
+  }
+
+  function exportJpg() {
+    var btn = document.getElementById("exportBtn");
+    if (typeof html2canvas === "undefined") {
+      alert("Image library couldn't load. Connect to the internet once so html2canvas can download, then try again.");
+      return;
+    }
+    var original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "⏳ Rendering...";
+    html2canvas(routineCard, { scale: 2, backgroundColor: "#ffffff", useCORS: true }).then(function (canvas) {
+      var link = document.createElement("a");
+      link.download = "meal-routine-" + new Date().toISOString().slice(0, 10) + ".jpg";
+      link.href = canvas.toDataURL("image/jpeg", 0.95);
+      link.click();
+      btn.disabled = false;
+      btn.textContent = original;
+    }).catch(function (err) {
+      console.error(err);
+      alert("Sorry, exporting the image failed. Please try again.");
+      btn.disabled = false;
+      btn.textContent = original;
+    });
+  }
+
+  function clearWeek() {
+    if (!confirm("Clear all meals for this week? (Your saved meal suggestions are kept.)")) return;
+    saveWeek({});
+    buildGrid();
+    outputPanel.classList.add("hidden");
+  }
+
+  // ---- init ----
+  document.getElementById("generateBtn").addEventListener("click", generate);
+  document.getElementById("clearBtn").addEventListener("click", clearWeek);
+  document.getElementById("exportBtn").addEventListener("click", exportJpg);
+
+  buildGrid();
+  refreshDatalist();
+})();
+</script>
+</body>
+</html>
